@@ -1,0 +1,78 @@
+#cloud-config
+#users:
+#  - name: devops
+#    groups: users, admin
+#    sudo: ALL=(ALL) NOPASSWD:ALL
+#    shell: /bin/bash
+#    ssh_authorized_keys:
+#      - ssh-rsa <key>
+package_update: true
+package_upgrade: true
+packages:
+  - vim
+  - ca-certificates
+  - curl
+  - gnupg
+  - wget
+write_files:
+  - path: /bin/docker-up
+    content: |
+        #!/usr/bin/bash
+        docker-compose up -d
+  - path: /etc/systemd/system/docker-up.service
+    content: |
+        [Unit]
+        Description=SUI NODE Startup
+
+        [Service]
+        Type=simple
+        ExecStart=/bin/docker-up
+        WorkingDirectory=/opt/service
+
+        [Install]
+        WantedBy=default.target
+  - path: /etc/profile.d/service-env.sh
+    content: |
+      export APP_VERSION=${version}
+  - path: /opt/service/docker-compose.yml
+    content: |
+      version: '3.9'
+      services:
+        sui-node:
+          container_name: sui-node
+          image: mysten/sui-node:${version}
+          command: ["sui-node", "--config-path", "/opt/sui/config/fullnode.yaml"]
+          restart: always
+          #environment:
+          ports:
+            - "8084:8084/udp"
+            - "9000:9000"
+            - "9184:9184"
+          volumes:
+            - ./volumes/root:/root
+            - ./volumes/fullnode.yaml:/opt/sui/config/fullnode.yaml:ro
+            - ./volumes/genesis.blob:/opt/sui/config/genesis.blob:ro
+            - ./volumes/suidb:/opt/sui/db:rw
+          logging:
+            driver: "json-file"
+            options:
+              max-size: 10m
+              max-file: "3"
+runcmd:
+  - echo '${opt} /opt/service/volumes xfs discard,nofail,defaults 0 0' >> /etc/fstab
+  - mkdir -p /opt/service/volumes && mount /opt/service/volumes
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - chmod a+r /etc/apt/keyrings/docker.gpg
+  - echo "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt update && apt -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  - wget https://github.com/docker/compose/releases/download/v2.22.0/docker-compose-linux-x86_64
+  - mv docker-compose-linux-x86_64 /bin/docker-compose && chmod a+x /bin/docker-compose
+  - echo 'vm.overcommit_memory = 1' >> /etc/sysctl.conf
+  - chmod u+x /bin/docker-up
+  - systemctl enable docker
+  - systemctl daemon-reload && systemctl enable docker-up.service
+  - wget https://github.com/MystenLabs/sui/raw/main/crates/sui-config/data/fullnode-template.yaml -O /opt/service/volumes/fullnode.yaml
+  - wget https://github.com/MystenLabs/sui-genesis/raw/main/${sui_network}/genesis.blob -O /opt/service/volumes/genesis.blob
+  - sed -i 's/127.0.0.1/0.0.0.0/' /opt/service/volumes/fullnode.yaml
+  - shutdown -r now
