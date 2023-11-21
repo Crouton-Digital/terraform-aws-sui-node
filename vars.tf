@@ -1,10 +1,10 @@
 variable "aws_region" {
-  default = "us-west-2"
+  default = "eu-west-2"
   description = "AWS region"
 }
 
 variable "aws_availability_zone" {
-  default = "us-west-2a"
+  default = "eu-west-2a"
   description = "AWS region"
 }
 
@@ -26,6 +26,11 @@ variable "vpc_name" {
 variable "aws_instance_type" {
   default     = "t2.micro"
   description = "AWS instance type"
+}
+
+variable "storage_persistent_data" {
+  default     = "10"
+  description = "Storage for persistent data"
 }
 
 # Version docker containers

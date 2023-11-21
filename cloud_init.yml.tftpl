@@ -59,8 +59,13 @@ write_files:
               max-size: 10m
               max-file: "3"
 runcmd:
-  - echo '${opt} /opt/service/volumes xfs discard,nofail,defaults 0 0' >> /etc/fstab
-  - mkdir -p /opt/service/volumes && mount /opt/service/volumes
+  - while [ ! -e /dev/xvdb ]; do echo "/dev/xvdb does not exist. Waiting for 2 seconds..."; sleep 2; done
+  - filesystem_type=$(lsblk -no FSTYPE /dev/xvdb) && if [ "$filesystem_type" != "ext4" ]; then  mkfs.ext4 /dev/xvdb; fi
+  - echo "/dev/xvdb /opt/service  ext4 discard,nofail,defaults 0 0" >> /etc/fstab
+  - mv /opt/service /opt/service.tmp && mkdir /opt/service
+  - mount /opt/service
+  - mv /opt/service.tmp/* /opt/service/
+  - mkdir -p /opt/service/volumes
   - install -m 0755 -d /etc/apt/keyrings
   - curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
   - chmod a+r /etc/apt/keyrings/docker.gpg
@@ -70,9 +75,9 @@ runcmd:
   - mv docker-compose-linux-x86_64 /bin/docker-compose && chmod a+x /bin/docker-compose
   - echo 'vm.overcommit_memory = 1' >> /etc/sysctl.conf
   - chmod u+x /bin/docker-up
-  - systemctl enable docker
-  - systemctl daemon-reload && systemctl enable docker-up.service
   - wget https://github.com/MystenLabs/sui/raw/main/crates/sui-config/data/fullnode-template.yaml -O /opt/service/volumes/fullnode.yaml
   - wget https://github.com/MystenLabs/sui-genesis/raw/main/${sui_network}/genesis.blob -O /opt/service/volumes/genesis.blob
   - sed -i 's/127.0.0.1/0.0.0.0/' /opt/service/volumes/fullnode.yaml
+  - systemctl enable docker
+  - systemctl daemon-reload && systemctl enable docker-up.service
   - shutdown -r now

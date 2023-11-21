@@ -16,7 +16,6 @@ resource "aws_eip" "ip_ip_env" {
 
 resource "aws_internet_gateway" "vpc_gw" {
   vpc_id = aws_vpc.my_vpc.id
-
 }
 
 resource "aws_route_table" "route_table" {
@@ -77,6 +76,7 @@ data "aws_ami" "latest_debian_linux" {
 resource "aws_instance" "my_instance" {
   ami                    = data.aws_ami.latest_debian_linux.id
   instance_type          = var.aws_instance_type
+  availability_zone      = var.aws_availability_zone
   subnet_id              = aws_subnet.public_subnet.id
   user_data              = templatefile("${path.module}/cloud_init.yml.tftpl", {
     opt                  = ""
@@ -97,6 +97,17 @@ resource "aws_instance" "my_instance" {
   tags = {
     Name = "${var.vpc_name}"
   }
+}
+
+resource "aws_ebs_volume" "docker_persistent_data" {
+  availability_zone = var.aws_availability_zone
+  size              = var.storage_persistent_data
+}
+
+resource "aws_volume_attachment" "docker_opt_service" {
+  device_name = "/dev/xvdb"
+  volume_id   = aws_ebs_volume.docker_persistent_data.id
+  instance_id = aws_instance.my_instance.id
 }
 
 output "host_ip" {
