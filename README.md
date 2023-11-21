@@ -45,11 +45,16 @@ terraform apply
 # show sui node IP
 terraform output
 ```
+
+![terraform_apply.gif](images%2Fterraform_apply.gif)
+
 ## Connect to SUI Node use ssh 
  ```bash
  chmod 0600 aws-sui-node-key.pem
  ssh admin@<ip sui node> -i aws-sui-node-key.pem
  ```
+
+![sui_ssh_login.gif](images%2Fsui_ssh_login.gif)
 
 ## Configure and Management 
 
